@@ -13,6 +13,8 @@ import {
   SqlBoolNode,
   SqlWindowNode,
   SqlOrderByNode,
+  SqlNullNode,
+  SqlCaseNode,
 } from "../sqlNodes";
 
 let idCounter = 0;
@@ -31,7 +33,8 @@ export class BaseSqlVisitor implements SqlVisitor {
     const exprNode = node.expr ? node.expr : node; // Check if node.expr exists, otherwise use node directly
 
     if (!exprNode || !exprNode.type) {
-      throw new Error(`Unknown node type: ${JSON.stringify(node)}`);
+      console.error(`Unknown node type: ${JSON.stringify(node)}`);
+      return;
     }
 
     switch (exprNode.type) {
@@ -74,8 +77,15 @@ export class BaseSqlVisitor implements SqlVisitor {
       case "order_by":
         this.visitOrderBy(exprNode as SqlOrderByNode); // Add a new visitor method for order_by
         break;
+      case "null":
+        this.visitNull(exprNode as SqlNullNode);
+        break;
+      case "case": // Add this case for case node
+        this.visitCase(exprNode as SqlCaseNode);
+        break;
       default:
-        throw new Error(`Unknown node type: ${exprNode.type}`);
+        console.error(`Unknown node type: ${JSON.stringify(node)}`);
+        break;
     }
   }
 
@@ -138,5 +148,17 @@ export class BaseSqlVisitor implements SqlVisitor {
 
   visitOrderBy(node: SqlOrderByNode): void {
     this.visit(node.expr);
+  }
+
+  visitNull(node: SqlNullNode): void {}
+
+  visitCase(node: SqlCaseNode): void {
+    node.whenClauses?.forEach(({ condition, result }) => {
+      this.visit(condition);
+      this.visit(result);
+    });
+    if (node.elseResult) {
+      this.visit(node.elseResult);
+    }
   }
 }

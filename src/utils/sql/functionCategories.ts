@@ -1,36 +1,59 @@
 // functionCategories.ts
 export const functionCategories: {
-  [key: string]: { standardFunction: string; category: string; cost: number };
+  [key: string]: { standardFunction: string; category: string; cost: number; isLAC?: boolean};
 } = {
-  // Aggregate Functions
+// Aggregate Functions
   'AVG': { standardFunction: 'avg', category: 'Aggregate Functions', cost: 5 },
+  'AVG_IF': { standardFunction: 'avgIf', category: 'Aggregate Functions', cost: 6 },
   'COUNT': { standardFunction: 'count', category: 'Aggregate Functions', cost: 3 },
-  'COUNT_DISTINCT': { standardFunction: 'countDistinct', category: 'Aggregate Functions', cost: 7 },
+  'COUNT_IF': { standardFunction: 'countIf', category: 'Aggregate Functions', cost: 4 },
+  'DISTINCT_COUNT': { standardFunction: 'distinct_count', category: 'Aggregate Functions', cost: 10 },
+  'DISTINCT_COUNT_IF': { standardFunction: 'distinct_countIf', category: 'Aggregate Functions', cost: 11 },
   'MAX': { standardFunction: 'max', category: 'Aggregate Functions', cost: 4 },
+  'MAX_IF': { standardFunction: 'maxIf', category: 'Aggregate Functions', cost: 5 },
   'MEDIAN': { standardFunction: 'median', category: 'Aggregate Functions', cost: 6 },
+  'MEDIAN_IF': { standardFunction: 'medianIf', category: 'Aggregate Functions', cost: 7 },
   'MIN': { standardFunction: 'min', category: 'Aggregate Functions', cost: 4 },
+  'MIN_IF': { standardFunction: 'minIf', category: 'Aggregate Functions', cost: 5 },
   'PERCENTILE_DISC': { standardFunction: 'percentileDisc', category: 'Aggregate Functions', cost: 8 },
   'PERCENTILE_CONT': { standardFunction: 'percentileCont', category: 'Aggregate Functions', cost: 8 },
   'SUM': { standardFunction: 'sum', category: 'Aggregate Functions', cost: 5 },
+  'SUM_IF': { standardFunction: 'sumIf', category: 'Aggregate Functions', cost: 6 },
   'STDEV': { standardFunction: 'stdev', category: 'Aggregate Functions', cost: 6 },
+  'STDEV_IF': { standardFunction: 'stdevIf', category: 'Aggregate Functions', cost: 7 },
   'STDEVP': { standardFunction: 'stdevp', category: 'Aggregate Functions', cost: 6 },
+  'STDEVP_IF': { standardFunction: 'stdevpIf', category: 'Aggregate Functions', cost: 7 },
   'VAR': { standardFunction: 'var', category: 'Aggregate Functions', cost: 6 },
+  'VAR_IF': { standardFunction: 'varIf', category: 'Aggregate Functions', cost: 7 },
   'VARP': { standardFunction: 'varp', category: 'Aggregate Functions', cost: 6 },
+  'VARP_IF': { standardFunction: 'varpIf', category: 'Aggregate Functions', cost: 7 },
+  'PERIOD_TO_DATE_AVG': { standardFunction: 'periodToDateAvg', category: 'Aggregate Functions', cost: 9 },
+  'PERIOD_TO_DATE_COUNT': { standardFunction: 'periodToDateCount', category: 'Aggregate Functions', cost: 8 },
+  'PERIOD_TO_DATE_MAX': { standardFunction: 'periodToDateMax', category: 'Aggregate Functions', cost: 8 },
+  'PERIOD_TO_DATE_MEDIAN': { standardFunction: 'periodToDateMedian', category: 'Aggregate Functions', cost: 9 },
+  'PERIOD_TO_DATE_MIN': { standardFunction: 'periodToDateMin', category: 'Aggregate Functions', cost: 8 },
+  'PERIOD_TO_DATE_PERCENTILE': { standardFunction: 'periodToDatePercentile', category: 'Aggregate Functions', cost: 10 },
+  'PERIOD_TO_DATE_PERCENTILE_CONT': { standardFunction: 'periodToDatePercentileCont', category: 'Aggregate Functions', cost: 10 },
+  'PERIOD_TO_DATE_STDEV': { standardFunction: 'periodToDateStDev', category: 'Aggregate Functions', cost: 9 },
+  'PERIOD_TO_DATE_STDEVP': { standardFunction: 'periodToDateStDevP', category: 'Aggregate Functions', cost: 9 },
+  'PERIOD_TO_DATE_SUM': { standardFunction: 'periodToDateSum', category: 'Aggregate Functions', cost: 8 },
+  'PERIOD_TO_DATE_VAR': { standardFunction: 'periodToDateVar', category: 'Aggregate Functions', cost: 9 },
+  'PERIOD_TO_DATE_VARP': { standardFunction: 'periodToDateVarP', category: 'Aggregate Functions', cost: 9 },
 
   // _LACA Suffix Functions
-  'AVG_LACA': { standardFunction: 'avg', category: 'Aggregate Functions', cost: 7 },
-  'COUNT_LACA': { standardFunction: 'count', category: 'Aggregate Functions', cost: 7 },
-  'COUNT_DISTINCT_LACA': { standardFunction: 'countDistinct', category: 'Aggregate Functions', cost: 7 },
-  'MAX_LACA': { standardFunction: 'max', category: 'Aggregate Functions', cost: 7 },
-  'MEDIAN_LACA': { standardFunction: 'median', category: 'Aggregate Functions', cost: 7 },
-  'MIN_LACA': { standardFunction: 'min', category: 'Aggregate Functions', cost: 7 },
-  'PERCENTILE_DISC_LACA': { standardFunction: 'percentileDisc', category: 'Aggregate Functions', cost: 7 },
-  'PERCENTILE_CONT_LACA': { standardFunction: 'percentileCont', category: 'Aggregate Functions', cost: 7 },
-  'SUM_LACA': { standardFunction: 'sum', category: 'Aggregate Functions', cost: 7 },
-  'STDEV_LACA': { standardFunction: 'stdev', category: 'Aggregate Functions', cost: 7 },
-  'STDEVP_LACA': { standardFunction: 'stdevp', category: 'Aggregate Functions', cost: 7 },
-  'VAR_LACA': { standardFunction: 'var', category: 'Aggregate Functions', cost: 7 },
-  'VARP_LACA': { standardFunction: 'varp', category: 'Aggregate Functions', cost: 7 },
+  'AVG_LACA': { standardFunction: 'avg', category: 'Aggregate Functions', cost: 7, isLAC: true},
+  'COUNT_LACA': { standardFunction: 'count', category: 'Aggregate Functions', cost: 7, isLAC: true },
+  'DISTINCT_COUNT_LACA': { standardFunction: 'distinctCount', category: 'Aggregate Functions', cost: 12, isLAC: true },
+  'MAX_LACA': { standardFunction: 'max', category: 'Aggregate Functions', cost: 7, isLAC: true },
+  'MEDIAN_LACA': { standardFunction: 'median', category: 'Aggregate Functions', cost: 7, isLAC: true },
+  'MIN_LACA': { standardFunction: 'min', category: 'Aggregate Functions', cost: 7, isLAC: true  },
+  'PERCENTILE_DISC_LACA': { standardFunction: 'percentileDisc', category: 'Aggregate Functions', cost: 7, isLAC: true },
+  'PERCENTILE_CONT_LACA': { standardFunction: 'percentileCont', category: 'Aggregate Functions', cost: 7, isLAC: true },
+  'SUM_LACA': { standardFunction: 'sum', category: 'Aggregate Functions', cost: 7, isLAC: true },
+  'STDEV_LACA': { standardFunction: 'stdev', category: 'Aggregate Functions', cost: 7, isLAC: true },
+  'STDEVP_LACA': { standardFunction: 'stdevp', category: 'Aggregate Functions', cost: 7, isLAC: true },
+  'VAR_LACA': { standardFunction: 'var', category: 'Aggregate Functions', cost: 7, isLAC: true },
+  'VARP_LACA': { standardFunction: 'varp', category: 'Aggregate Functions', cost: 7, isLAC: true },
 
   // Conditional Functions
   'COALESCE': { standardFunction: 'coalesce', category: 'Conditional Functions', cost: 2 },
@@ -44,13 +67,13 @@ export const functionCategories: {
 
   // Date Functions
   'ADDDATETIME': { standardFunction: 'addDateTime', category: 'Date Functions', cost: 4 },
-  'ADDWORKDAYS': { standardFunction: 'addWorkDays', category: 'Date Functions', cost: 4 },
+  'ADDWORKDAYS': { standardFunction: 'addWorkDays', category: 'Date Functions', cost: 7 },
   'DATEDIFF': { standardFunction: 'dateDiff', category: 'Date Functions', cost: 4 },
   'EPOCHDATE': { standardFunction: 'epochDate', category: 'Date Functions', cost: 3 },
   'EXTRACT': { standardFunction: 'extract', category: 'Date Functions', cost: 3 },
   'FORMATDATE': { standardFunction: 'formatDate', category: 'Date Functions', cost: 3 },
   'ISWORKDAY': { standardFunction: 'isWorkDay', category: 'Date Functions', cost: 3 },
-  'NETWORKDAYS': { standardFunction: 'netWorkDays', category: 'Date Functions', cost: 4 },
+  'NETWORKDAYS': { standardFunction: 'netWorkDays', category: 'Date Functions', cost: 7 },
   'NOW': { standardFunction: 'now', category: 'Date Functions', cost: 2 },
   'TRUNCDATE': { standardFunction: 'truncDate', category: 'Date Functions', cost: 3 },
 
@@ -99,7 +122,7 @@ export const functionCategories: {
   'PERCENT_DIFFERENCE': { standardFunction: 'percentDifference', category: 'Table Calculation Functions', cost: 5 },
   'AVG_OVER': { standardFunction: 'avgOver', category: 'Table Calculation Functions', cost: 7 },
   'COUNT_OVER': { standardFunction: 'countOver', category: 'Table Calculation Functions', cost: 7 },
-  'DISTINCT_COUNT_OVER': { standardFunction: 'distinctCountOver', category: 'Table Calculation Functions', cost: 7 },
+  'DISTINCT_COUNT_OVER': { standardFunction: 'distinctCountOver', category: 'Table Calculation Functions', cost: 15 },
   'MAX_OVER': { standardFunction: 'maxOver', category: 'Table Calculation Functions', cost: 7 },
   'MIN_OVER': { standardFunction: 'minOver', category: 'Table Calculation Functions', cost: 7 },
   'PERCENTILE_OVER': { standardFunction: 'percentileOver', category: 'Table Calculation Functions', cost: 8 },
@@ -148,44 +171,37 @@ export const getFunctionCategoryAndCost = (
 };
 
 const lacFunctions = [
-  "AVG",
-  "COUNT",
-  "COUNT_DISTINCT",
-  "MAX",
-  "MEDIAN",
-  "MIN",
-  "PERCENTILE_DISC",
-  "PERCENTILE_CONT",
-  "STDEV",
-  "STDEVP",
-  "SUM",
-  "VAR",
-  "VARP",
-  "AVG_LACA",
-  "COUNT_LACA",
-  "COUNT_DISTINCT_LACA",
-  "MAX_LACA",
-  "MEDIAN_LACA",
-  "MIN_LACA",
-  "PERCENTILE_DISC_LACA",
-  "PERCENTILE_CONT_LACA",
-  "STDEV_LACA",
-  "STDEVP_LACA",
-  "SUM_LACA",
-  "VAR_LACA",
-  "VARP_LACA",
+  'avg',
+  'count',
+  'distinct_count',
+  'max',
+  'median',
+  'min',
+  'percentile',
+  'percentileCont',
+  'percentileDisc',
+  'stdev',
+  'stdevp',
+  'sum',
+  'var',
+  'varp',
 ];
 
 export const isLACFunction = (funcName: string): boolean => {
-  return lacFunctions.includes(funcName.toUpperCase());
+  return lacFunctions.includes(funcName.toLowerCase());
 };
 
-export const getStandardFunctionName = (funcName: string): string | undefined => {
-  const lowerCaseFuncName = funcName.toLowerCase();
-  const entry = Object.values(functionCategories).find(
-    (entry) => entry.standardFunction.toLowerCase() === lowerCaseFuncName
+export const getStandardFunctionName = (funcKey: string): string | undefined => {
+  const entry = functionCategories[funcKey];
+  return entry ? entry.standardFunction : funcKey;
+};
+
+export const getFunctionCategoryKey = (standardFuncName: string): string | undefined => {
+  const lowerCaseFuncName = standardFuncName.toLowerCase();
+  const entry = Object.entries(functionCategories).find(
+    ([key, value]) => value.standardFunction.toLowerCase() === lowerCaseFuncName
   );
-  return entry ? entry.standardFunction : undefined;
+  return entry ? entry[0] : undefined;
 };
 
 

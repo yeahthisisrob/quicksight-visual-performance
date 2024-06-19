@@ -23,8 +23,8 @@ const Fields: React.FC<FieldsProps> = ({
   );
   const [open, setOpen] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState("name");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [sortBy, setSortBy] = useState("cost");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
   useEffect(() => {
     const resetState = () => {
@@ -44,8 +44,12 @@ const Fields: React.FC<FieldsProps> = ({
     traverseHierarchy(hierarchy.root);
   }, [hierarchy]);
 
-  const filteredExpressions = expressions.filter(
-    (expr) => expr.type === "field",
+  const filteredExpressions = Array.from(
+    new Map(
+      expressions
+        .filter((expr) => expr.type === "field")
+        .map((expr) => [expr.alias, expr]),
+    ).values(),
   );
 
   const handleViewGraph = (exp: Field) => {
@@ -68,17 +72,34 @@ const Fields: React.FC<FieldsProps> = ({
   };
 
   const sortedFields = [...filteredExpressions].sort((a, b) => {
-    if (sortBy === "name") {
+    if (sortBy === "userAlias") {
+      return sortOrder === "asc"
+        ? (a.userAlias || "").localeCompare(b.userAlias || "")
+        : (b.userAlias || "").localeCompare(a.userAlias || "");
+    }
+    if (sortBy === "alias") {
       return sortOrder === "asc"
         ? a.alias.localeCompare(b.alias)
         : b.alias.localeCompare(a.alias);
+    }
+    if (sortBy === "cost") {
+      return sortOrder === "asc"
+        ? (a.cost || 0) - (b.cost || 0)
+        : (b.cost || 0) - (a.cost || 0);
+    }
+    if (sortBy === "maxDepth") {
+      return sortOrder === "asc"
+        ? (a.maxDepth || 0) - (b.maxDepth || 0)
+        : (b.maxDepth || 0) - (a.maxDepth || 0);
     }
     return 0;
   });
 
   const columns = [
-    { id: "name", label: "Name", sortable: true },
-    { id: "sort", label: "Sort", sortable: false },
+    { id: "userAlias", label: "Alias", sortable: true },
+    { id: "alias", label: "ID", sortable: true },
+    { id: "maxDepth", label: "Max Depth", sortable: true },
+    { id: "cost", label: "Cost", sortable: true },
     { id: "actions", label: "Actions", sortable: false },
   ];
 
@@ -88,34 +109,10 @@ const Fields: React.FC<FieldsProps> = ({
         columns={columns}
         data={sortedFields.map((field, index) => ({
           ...field,
-          sort: field.sort ? (
-            <Box key={`${field.name}-${index}-sort`}>
-              {field.sort.name ? (
-                <Box key={`${field.sort.name}-${index}`}>
-                  {field.sort.name} ({field.sort.dir})
-                </Box>
-              ) : expressions.find(
-                  (expr) => expr.alias === field.sort?.metric.name,
-                ) ? (
-                <Button
-                  variant="text"
-                  onClick={() =>
-                    onHighlightCalculatedField(field?.sort?.metric.name || "")
-                  }
-                >
-                  {field.sort.metric.func}({field.sort.metric.name}) (
-                  {field.sort.dir})
-                </Button>
-              ) : (
-                <Box key={`${field.sort.metric.name}-${index}`}>
-                  {field.sort.metric.func}({field.sort.metric.name}) (
-                  {field.sort.dir})
-                </Box>
-              )}
-            </Box>
-          ) : null,
+          maxDepth: field.maxDepth ?? "N/A",
+          cost: field.cost ?? "N/A",
           actions: (
-            <React.Fragment key={`${field.name}-${index}-actions`}>
+            <React.Fragment key={`${field.alias}-${index}-actions`}>
               {expressions.find((expr) => expr.alias === field.alias) && (
                 <Button
                   variant="contained"

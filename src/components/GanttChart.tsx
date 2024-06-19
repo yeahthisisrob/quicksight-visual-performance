@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 import { Bar } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -11,7 +11,9 @@ import {
   ChartOptions,
 } from "chart.js";
 import ChartDataLabels from "chartjs-plugin-datalabels";
+import { ToggleButton, ToggleButtonGroup, Box } from "@mui/material";
 import { NodeData, TreeNode, TreeMap } from "../utils/requestHierarchyTree";
+import { hierarchyLevels } from "../constants/constants";
 
 ChartJS.register(
   CategoryScale,
@@ -28,6 +30,15 @@ interface GanttChartProps {
   selectedCid: string | null;
   onBarClick: (cid: string) => void;
   highlightedRequestId: string | null;
+  aggLevel: "Dashboard/Analysis" | "Sheet" | "DataSet" | "Visual" | "Request"; // Add this line
+  onAggLevelChange: (
+    newAggLevel:
+      | "Dashboard/Analysis"
+      | "Sheet"
+      | "DataSet"
+      | "Visual"
+      | "Request",
+  ) => void; // Add this line
 }
 
 const GanttChart: React.FC<GanttChartProps> = ({
@@ -35,14 +46,17 @@ const GanttChart: React.FC<GanttChartProps> = ({
   selectedCid,
   onBarClick,
   highlightedRequestId,
+  aggLevel,
+  onAggLevelChange,
 }) => {
+  const [viewMode, setViewMode] = useState<"duration" | "cost">("duration");
   const chartContainerRef = useRef<HTMLDivElement | null>(null);
 
   const chartData = {
     labels: [] as string[],
     datasets: [
       {
-        label: "Request Duration",
+        label: viewMode === "duration" ? "Request Duration" : "Request Cost",
         data: [] as number[],
         backgroundColor: [] as string[],
         borderColor: [] as string[],
@@ -56,31 +70,66 @@ const GanttChart: React.FC<GanttChartProps> = ({
     node: TreeNode<NodeData>,
     level: number,
     data: any[],
+    parentSheetName: string = "",
   ) => {
     node.children.forEach((child) => {
-      if (level === 4) {
-        // Changed to level 4 to get request IDs
-        const duration = (child.data.endTime - child.data.startTime) / 1000;
+      let sheetName = parentSheetName;
+      if (level === hierarchyLevels.SheetId) {
+        sheetName = child.data.sheetName || child.key;
+      }
+
+      if (
+        (aggLevel === "Dashboard/Analysis" &&
+          level === hierarchyLevels.DashboardId) ||
+        (aggLevel === "Sheet" && level === hierarchyLevels.SheetId) ||
+        (aggLevel === "DataSet" && level === hierarchyLevels.DataSourceId) ||
+        (aggLevel === "Visual" && level === hierarchyLevels.VisualId) ||
+        (aggLevel === "Request" && level === hierarchyLevels.RequestId)
+      ) {
+        const duration = Math.max(
+          (child.data.endTime - child.data.startTime) / 1000,
+          0,
+        );
+        const label =
+          aggLevel === "Visual"
+            ? child.data.visualName || child.key
+            : aggLevel === "Sheet"
+              ? child.data.sheetName || child.key
+              : aggLevel === "DataSet"
+                ? `${sheetName}_${child.data.dataSourceName || child.key}`
+                : aggLevel === "Dashboard/Analysis"
+                  ? child.data.dashboardName ||
+                    child.data.analysisName ||
+                    child.key
+                  : child.key;
+
         data.push({
-          key: child.key, // Use request ID directly
+          key: child.key,
+          label: label,
           duration,
+          cost: child.data.cost || 0,
         });
       }
-      processNode(child, level + 1, data);
+      processNode(child, level + 1, data, sheetName);
     });
   };
 
-  const data: { key: string; duration: number }[] = [];
+  const data: { key: string; label: string; duration: number; cost: number }[] =
+    [];
   processNode(hierarchy.root, 0, data);
 
-  // Sort data by duration in descending order
-  data.sort((a, b) => b.duration - a.duration);
+  // Sort data by duration or cost in descending order
+  data.sort((a, b) =>
+    viewMode === "duration" ? b.duration - a.duration : b.cost - a.cost,
+  );
 
   // Prepare chart data
   const blueColor = "#376284";
   data.forEach((item) => {
-    chartData.labels.push(item.key);
-    chartData.datasets[0].data.push(item.duration);
+    chartData.labels.push(item.label);
+    chartData.datasets[0].data.push(
+      viewMode === "duration" ? item.duration : item.cost,
+    );
     const color =
       item.key === selectedCid || item.key === highlightedRequestId
         ? "orange"
@@ -97,11 +146,11 @@ const GanttChart: React.FC<GanttChartProps> = ({
       x: {
         beginAtZero: true,
         grid: {
-          display: false, // Remove grid lines
+          display: false,
         },
         title: {
           display: true,
-          text: "Duration (seconds)",
+          text: viewMode === "duration" ? "Duration (seconds)" : "Cost",
           align: "center",
         },
       },
@@ -127,13 +176,15 @@ const GanttChart: React.FC<GanttChartProps> = ({
       },
       tooltip: {
         callbacks: {
-          label: (tooltipItem) => `Duration: ${tooltipItem.raw} seconds`,
+          label: (tooltipItem) =>
+            `${viewMode === "duration" ? "Duration" : "Cost"}: ${tooltipItem.raw} ${viewMode === "duration" ? "seconds" : ""}`,
         },
       },
       datalabels: {
         anchor: "end",
         align: "end",
-        formatter: (value: number) => `${value.toFixed(2)}s`,
+        formatter: (value: number) =>
+          `${value.toFixed(2)}${viewMode === "duration" ? "s" : ""}`,
         color: "black",
       },
     },
@@ -146,15 +197,84 @@ const GanttChart: React.FC<GanttChartProps> = ({
     },
   };
 
+  const handleViewModeChange = (
+    event: React.MouseEvent<HTMLElement>,
+    newViewMode: "duration" | "cost" | null,
+  ) => {
+    if (newViewMode !== null) {
+      setViewMode(newViewMode);
+    }
+  };
+
+  const handleAggLevelChange = (
+    event: React.MouseEvent<HTMLElement>,
+    newAggLevel:
+      | "Dashboard/Analysis"
+      | "Sheet"
+      | "DataSet"
+      | "Visual"
+      | "Request"
+      | null,
+  ) => {
+    if (newAggLevel !== null) {
+      onAggLevelChange(newAggLevel);
+    }
+  };
+
   return (
-    <div
-      ref={chartContainerRef}
-      style={{
-        height: `${Math.max(150, data.length * 25)}px`,
-        overflowY: "auto",
-      }}
-    >
-      <Bar data={chartData} options={options} />
+    <div>
+      <Box display="flex" justifyContent="center" mb={2} p={0.5}>
+        <ToggleButtonGroup
+          value={aggLevel}
+          exclusive
+          onChange={handleAggLevelChange}
+          aria-label="aggregation level"
+          sx={{ mr: 2 }}
+        >
+          <ToggleButton
+            value="Dashboard/Analysis"
+            aria-label="Dashboard/Analysis"
+          >
+            Dashboard/Analysis
+          </ToggleButton>
+          <ToggleButton value="Sheet" aria-label="Sheet">
+            Sheet
+          </ToggleButton>
+          <ToggleButton value="DataSet" aria-label="DataSet">
+            DataSet
+          </ToggleButton>
+          <ToggleButton value="Visual" aria-label="Visual">
+            Visual
+          </ToggleButton>
+          <ToggleButton value="Request" aria-label="Request">
+            Request
+          </ToggleButton>
+        </ToggleButtonGroup>
+        <ToggleButtonGroup
+          value={viewMode}
+          exclusive
+          onChange={handleViewModeChange}
+          aria-label="view mode"
+        >
+          <ToggleButton value="duration" aria-label="duration">
+            Duration
+          </ToggleButton>
+          <ToggleButton value="cost" aria-label="cost">
+            Cost
+          </ToggleButton>
+        </ToggleButtonGroup>
+      </Box>
+      <div
+        ref={chartContainerRef}
+        style={{
+          height: `${Math.max(150, data.length * 25)}px`,
+          overflowY: "auto",
+          width: "100%",
+          textAlign: "left",
+        }}
+      >
+        <Bar data={chartData} options={options} />
+      </div>
     </div>
   );
 };

@@ -1,5 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { Box, Button, IconButton, Popover, Typography } from "@mui/material";
+import {
+  Box,
+  Button,
+  IconButton,
+  Popover,
+  Typography,
+  Chip,
+  Tooltip,
+} from "@mui/material";
 import InfoIcon from "@mui/icons-material/Info";
 import CommonTable from "./CommonTable";
 import ExpressionGraphDialog from "./ExpressionGraphDialog";
@@ -20,11 +28,10 @@ const CalculatedFields: React.FC<CalculatedFieldsProps> = ({ hierarchy }) => {
     useState<Expression | null>(null);
   const [open, setOpen] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState("alias");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [sortBy, setSortBy] = useState("cost");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
-  // TODO: Fix this popover to close when the mouse leaves the popover
   const handlePopoverOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
   };
@@ -53,8 +60,12 @@ const CalculatedFields: React.FC<CalculatedFieldsProps> = ({ hierarchy }) => {
     traverseHierarchy(hierarchy.root);
   }, [hierarchy]);
 
-  const filteredExpressions = expressions.filter(
-    (expr) => expr.type === "calculatedField",
+  const filteredExpressions = Array.from(
+    new Map(
+      expressions
+        .filter((expr) => expr.type === "calculatedField")
+        .map((expr) => [expr.alias, expr]),
+    ).values(),
   );
 
   const handleViewGraph = (exp: CalculatedField) => {
@@ -77,6 +88,11 @@ const CalculatedFields: React.FC<CalculatedFieldsProps> = ({ hierarchy }) => {
   };
 
   const sortedFields = [...filteredExpressions].sort((a, b) => {
+    if (sortBy === "userAlias") {
+      return sortOrder === "asc"
+        ? (a.userAlias || "").localeCompare(b.userAlias || "")
+        : (b.userAlias || "").localeCompare(a.userAlias || "");
+    }
     if (sortBy === "alias") {
       return sortOrder === "asc"
         ? a.alias.localeCompare(b.alias)
@@ -105,12 +121,44 @@ const CalculatedFields: React.FC<CalculatedFieldsProps> = ({ hierarchy }) => {
           ? 1
           : -1;
     }
+    if (sortBy === "maxDepth") {
+      return sortOrder === "asc"
+        ? (a.maxDepth || 0) - (b.maxDepth || 0)
+        : (b.maxDepth || 0) - (a.maxDepth || 0);
+    }
+    if (sortBy === "cost") {
+      return sortOrder === "asc"
+        ? (a.cost || 0) - (b.cost || 0)
+        : (b.cost || 0) - (a.cost || 0);
+    }
     return 0;
   });
 
   const columns = [
-    { id: "alias", label: "Alias", sortable: true },
-    { id: "expression", label: "Expression", sortable: true },
+    { id: "userAlias", label: "Alias", sortable: true },
+    { id: "alias", label: "ID", sortable: true },
+    {
+      id: "expression",
+      label: "Expression",
+      sortable: true,
+      format: (value: string, row: CalculatedField) => (
+        <Box display="flex" alignItems="center">
+          {value}
+          {row.hasError && (
+            <Tooltip title={row.parsingError || "Parsing Error"}>
+              <Chip
+                label="Parsing Error"
+                color="error"
+                size="small"
+                sx={{ ml: 1 }}
+              />
+            </Tooltip>
+          )}
+        </Box>
+      ),
+    },
+    { id: "maxDepth", label: "Max Depth", sortable: true },
+    { id: "cost", label: "Cost", sortable: true },
     { id: "dataSetCalculation", label: "Dataset Calculation", sortable: true },
     {
       id: "preProcessed",
@@ -174,6 +222,8 @@ const CalculatedFields: React.FC<CalculatedFieldsProps> = ({ hierarchy }) => {
         columns={columns}
         data={sortedFields.map((field) => ({
           ...field,
+          maxDepth: field.maxDepth ?? 0,
+          cost: field.cost ?? 0,
           dataSetCalculation: (field as CalculatedField).dataSetCalculation
             ? "Yes"
             : "No",

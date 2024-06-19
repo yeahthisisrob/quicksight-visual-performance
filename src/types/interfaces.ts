@@ -6,12 +6,16 @@ export interface WebSocketMessage {
   data: string;
 }
 
+// types/interfaces.ts
 export interface APIMessage {
   type: string;
+  startedDateTime: string;
+  time?: number;
   request: {
     method: string;
     url: string;
     queryString: Array<{ name: string; value: string }>;
+    headers?: Array<{ name: string; value: string }>; // Added this line
   };
   response?: {
     status: number;
@@ -30,10 +34,21 @@ export interface APIMessage {
     _transferSize: number;
     _error: any;
   };
+  timings?: {
+    blocked?: number;
+    dns?: number;
+    ssl?: number;
+    connect?: number;
+    send: number;
+    wait: number;
+    receive: number;
+    _blocked_queueing?: number;
+  };
 }
 
 export interface Expression {
   alias: string;
+  userAlias?: string;
   expression: string;
   parsedExpression: any;
   type: string;
@@ -43,6 +58,7 @@ export interface Expression {
   parsingError?: string;
   usedInQueryGen?: boolean;
   category?: string;
+  maxDepth?: number;
 }
 
 export interface Field extends Expression {
@@ -130,6 +146,17 @@ export interface HarEntry {
   _webSocketMessages?: HarWebSocketMessage[];
   request?: HarRequest;
   response?: HarResponse;
+  time?: number;
+  timings?: {
+    blocked?: number;
+    dns?: number;
+    ssl?: number;
+    connect?: number;
+    send: number;
+    wait: number;
+    receive: number;
+    _blocked_queueing?: number;
+  };
 }
 
 export interface HarLog {
@@ -161,10 +188,13 @@ export interface NodeData {
   dashboardId?: string;
   analysisId?: string;
   sheetId?: string;
+  dataSourceId?: string;
   visualId?: string;
   visualType?: string;
   dashboardName?: string;
   sheetName?: string;
+  dataSourceName?: string;
+  dataSourceType?: string;
   visualName?: string;
   analysisName?: string;
   expressions?: Expression[];
@@ -210,6 +240,10 @@ export interface NodeData {
     sheetControlId: string | null;
     values: any[];
   }[];
+  userAgent?: string;
+  origin?: string;
+  requestId?: string;
+  cost?: number;
 }
 
 export const initializeNodeData = (type: string = ""): NodeData => ({
@@ -235,15 +269,21 @@ export const initializeNodeData = (type: string = ""): NodeData => ({
   dashboardId: "",
   analysisId: "",
   sheetId: "",
+  dataSourceId: "",
   visualId: "",
   visualType: "",
   dashboardName: "",
   sheetName: "",
+  dataSourceName: "",
+  dataSourceType: "",
   visualName: "",
   analysisName: "",
   expressions: [],
   parameters: [],
   filters: [],
+  userAgent: "",
+  origin: "",
+  cost: 0,
 });
 
 export interface APIOperationResponse {
@@ -374,4 +414,93 @@ export interface APIOperationResponse {
     preparedDataSourceId: string;
     sourceType: string;
   };
+  preparedDataSourceResults?: {
+    columns: {
+      aggregationFunction: string | null;
+      aggregationFunctionParameters: any | null;
+      columnDescription: string | null;
+      columnGeographicRole: string | null;
+      columnId: string;
+      columnType: string;
+      dataFormatDisplayType: string | null;
+      distribution: string | null;
+      expression: string | null;
+      format: string | null;
+      isAggregateCalculatedColumn: boolean;
+      maxValue: number | null;
+      minValue: number | null;
+      name: string;
+      numDistinctValues: number | null;
+      precision: number;
+      role: string;
+      scale: number;
+      timeGranularity: string | null;
+      userAlias: string;
+    }[];
+    preparedDataSource: {
+      affiliatedDataSourceGroupId: string | null;
+      affiliatedDataSourceId: string | null;
+      creationTime: number;
+      dataPrepConfig: {
+        accelerated: boolean;
+        anomalyDetectionConfiguration: any | null;
+        calculatedColumns: any[];
+        columnConfiguration: any[];
+        columnGroupList: any[];
+        columnLevelPermission: any | null;
+        columnSchemas: any[];
+        containsHeader: any | null;
+        dataPrepFilterList: any[];
+        dataTransformationScript: any | null;
+        datasetParameters: any[];
+        enableRefreshFailureAlert: boolean;
+        expressionMapToValidate: any | null;
+        fieldFolderMap: any;
+        invalidCalculatedColumns: any | null;
+        mlColumns: any[];
+        mlConfigurationMap: any;
+        rowLevelPermissionTagConfiguration: any | null;
+        rowLevelPermissions: any | null;
+        sourceColumns: any[];
+        uploadSettings: any | null;
+      };
+      dataPrepInstruction: any | null;
+      databaseType: string | null;
+      datasetNestingLevel: number;
+      description: string | null;
+      disableUseAsDirectQuerySource: boolean;
+      disableUseAsImportedSource: boolean;
+      editable: boolean;
+      fetchType: string;
+      fromBackup: boolean;
+      isIdentityPropagationEnabled: any | null;
+      lastUpdated: number;
+      lookbackWindowConfiguration: any | null;
+      name: string;
+      parentDatasetAttributes: {
+        attributesMap: any;
+      };
+      preparedDataSourceId: string;
+      preparedDataSourceInternalId: string;
+      queryable: any | null;
+      sourceType: string;
+      spiceCapacityConsumed: number;
+      spiceTableStatus: any | null;
+      tags: any | null;
+      type: any | null;
+      useAs: any | null;
+      userPermissionDataSourceInternalId: any | null;
+    };
+    restrictedColumns: any | null;
+  }[];
+  userAgent?: string; // Added this line
+  origin?: string; // Added this line
+  requestId?: string; // Added this line
+  preparedDataSourceOverlays?: {
+    calculatedColumns: any[];
+    columns: any[];
+    overlayId: string;
+    parameters: any[];
+    preparedDataSourceId: string;
+  }[];
 }

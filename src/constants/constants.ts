@@ -5,8 +5,9 @@ export const hierarchyLevels: { [key: string]: number } = {
   DashboardId: 1,
   AnalysisId: 1,
   SheetId: 2,
-  VisualId: 3,
-  RequestId: 4,
+  DataSourceId: 3,
+  VisualId: 4,
+  RequestId: 5,
 };
 
 export const DEFAULT_REQUEST_COUNT = 1;

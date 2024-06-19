@@ -82,3 +82,13 @@ export interface SqlOrderByNode extends SqlNode {
   expr: SqlNode;
   order: "ASC" | "DESC";
 }
+
+export interface SqlNullNode extends SqlNode {
+  type: "null";
+}
+
+export interface SqlCaseNode extends SqlNode {
+  type: "case";
+  whenClauses: { condition: SqlNode; result: SqlNode }[];
+  elseResult?: SqlNode;
+}

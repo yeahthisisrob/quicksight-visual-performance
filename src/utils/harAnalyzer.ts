@@ -66,6 +66,9 @@ export const analyzeHarFile = async (
                 name: `API call at ${entry.startedDateTime}`,
                 request: entry.request,
                 response: entry.response || undefined,
+                startedDateTime: entry.startedDateTime,
+                time: entry.time,
+                timings: entry.timings,
               },
             ]
           : [];
@@ -85,6 +88,9 @@ export const analyzeHarFile = async (
             name: `Metadata document at ${entry.startedDateTime}`,
             request: entry.request,
             response: entry.response || undefined,
+            startedDateTime: entry.startedDateTime,
+            time: entry.time,
+            timings: entry.timings,
           });
         }
 

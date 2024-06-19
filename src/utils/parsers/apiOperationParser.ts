@@ -1,3 +1,4 @@
+// utils/parsers/apiOperationParser.ts
 import { APIMessage, APIOperationResponse } from "../../types/interfaces";
 import * as he from "he";
 
@@ -11,6 +12,8 @@ export const apiMessageParser = (
     let parameters;
     let filterGroups;
     let filters;
+    let preparedDataSourceResults;
+    let preparedDataSourceOverlays;
 
     if (!request || !request.queryString) {
       console.error("Request or query string missing in API message.");
@@ -43,6 +46,10 @@ export const apiMessageParser = (
             parameters = data.dashboardMetadata.parameters;
             filters = data.dashboardMetadata.filters;
             filterGroups = data.dashboardMetadata.filterGroups;
+            preparedDataSourceResults =
+              data.dashboardMetadata.preparedDataSourceResults;
+            preparedDataSourceOverlays =
+              data.dashboardMetadata.preparedDataSourceOverlays;
           } catch (error) {
             console.error("Error parsing JSON:", error);
           }
@@ -55,6 +62,8 @@ export const apiMessageParser = (
           parameters,
           filterGroups,
           filters,
+          preparedDataSourceResults,
+          preparedDataSourceOverlays,
         };
       }
     } else {
@@ -193,6 +202,22 @@ export const apiMessageParser = (
           return {
             operation: operationQueryParam.value,
             preparedDataSource,
+          };
+        }
+
+        // Handle ListPreparedDataSourceOverlays operation
+        if (operationQueryParam.value === "ListPreparedDataSourceOverlays") {
+          const preparedDataSourceOverlays =
+            responseData.preparedDataSourceOverlays?.map((overlay: any) => ({
+              calculatedColumns: overlay.calculatedColumns,
+              columns: overlay.columns,
+              overlayId: overlay.overlayId,
+              parameters: overlay.parameters,
+              preparedDataSourceId: overlay.preparedDataSourceId,
+            }));
+          return {
+            operation: operationQueryParam.value,
+            preparedDataSourceOverlays,
           };
         }
 
@@ -366,6 +391,132 @@ export const getDataSourceData = (apiMessages: Map<string, APIMessage>) => {
         });
       }
     }
+    if (parsedResponse && parsedResponse.preparedDataSourceResults) {
+      parsedResponse.preparedDataSourceResults.forEach((dataSource: any) => {
+        const dataSourceId = dataSource.preparedDataSource.preparedDataSourceId;
+        if (dataSourceId) {
+          dataSourceData.set(dataSourceId, {
+            calculatedColumns:
+              dataSource.preparedDataSource.dataPrepConfig.columns,
+            dataPrepFilterList:
+              dataSource.preparedDataSource.dataPrepConfig.dataPrepFilterList,
+            datasetParameters:
+              dataSource.preparedDataSource.dataPrepConfig.datasetParameters,
+            databaseType: dataSource.preparedDataSource.databaseType,
+            lastUpdated: dataSource.preparedDataSource.lastUpdated,
+            name: dataSource.preparedDataSource.name,
+            preparedDataSourceId:
+              dataSource.preparedDataSource.preparedDataSourceId,
+            sourceType: dataSource.preparedDataSource.sourceType,
+          });
+        }
+      });
+    }
   });
   return dataSourceData;
+};
+
+// Function to get data source data by name
+export const getDataSourceDataByName = (
+  apiMessages: Map<string, APIMessage>,
+) => {
+  const dataSourceData = new Map<string, any>();
+  apiMessages.forEach((apiMessage) => {
+    const parsedResponse = apiMessageParser(apiMessage);
+    if (parsedResponse && parsedResponse.preparedDataSource) {
+      const dataSourceName = parsedResponse.preparedDataSource.name;
+      if (dataSourceName) {
+        dataSourceData.set(dataSourceName, {
+          calculatedColumns:
+            parsedResponse.preparedDataSource.calculatedColumns,
+          dataPrepFilterList:
+            parsedResponse.preparedDataSource.dataPrepFilterList,
+          datasetParameters:
+            parsedResponse.preparedDataSource.datasetParameters,
+          databaseType: parsedResponse.preparedDataSource.databaseType,
+          lastUpdated: parsedResponse.preparedDataSource.lastUpdated,
+          name: dataSourceName,
+          preparedDataSourceId:
+            parsedResponse.preparedDataSource.preparedDataSourceId,
+          sourceType: parsedResponse.preparedDataSource.sourceType,
+        });
+      }
+    }
+    if (parsedResponse && parsedResponse.preparedDataSourceResults) {
+      parsedResponse.preparedDataSourceResults.forEach((dataSource: any) => {
+        const dataSourceName = dataSource.preparedDataSource.name;
+        if (dataSourceName) {
+          dataSourceData.set(dataSourceName, {
+            calculatedColumns:
+              dataSource.preparedDataSource.dataPrepConfig.columns,
+            dataPrepFilterList:
+              dataSource.preparedDataSource.dataPrepConfig.dataPrepFilterList,
+            datasetParameters:
+              dataSource.preparedDataSource.dataPrepConfig.datasetParameters,
+            databaseType: dataSource.preparedDataSource.databaseType,
+            lastUpdated: dataSource.preparedDataSource.lastUpdated,
+            name: dataSourceName,
+            preparedDataSourceId:
+              dataSource.preparedDataSource.preparedDataSourceId,
+            sourceType: dataSource.preparedDataSource.sourceType,
+          });
+        }
+      });
+    }
+  });
+  return dataSourceData;
+};
+
+export const getHeaderData = (apiMessages: Map<string, APIMessage>) => {
+  let userAgent: string | undefined = undefined;
+  let origin: string | undefined = undefined;
+
+  for (const apiMessage of apiMessages.values()) {
+    const { request } = apiMessage;
+
+    if (request && request.headers) {
+      const userAgentHeader = request.headers.find(
+        (header) => header.name.toLowerCase() === "user-agent",
+      );
+      const originHeader = request.headers.find(
+        (header) => header.name.toLowerCase() === "origin",
+      );
+
+      userAgent = userAgentHeader ? userAgentHeader.value : undefined;
+      origin = originHeader ? originHeader.value : undefined;
+
+      // Stop searching if both headers are found
+      if (userAgent && origin) {
+        break;
+      }
+    }
+  }
+
+  return { userAgent, origin };
+};
+
+// Function to extract calculated columns by columnId
+export const getCalculatedColumns = (apiMessages: Map<string, APIMessage>) => {
+  const calculatedColumns = new Map<string, any>();
+
+  apiMessages.forEach((apiMessage) => {
+    const parsedResponse = apiMessageParser(apiMessage);
+
+    if (parsedResponse && parsedResponse.preparedDataSourceOverlays) {
+      parsedResponse.preparedDataSourceOverlays.forEach((overlay: any) => {
+        if (overlay.calculatedColumns) {
+          overlay.calculatedColumns.forEach((column: any) => {
+            if (column.columnId) {
+              calculatedColumns.set(column.columnId, {
+                name: column.name,
+                role: column.role,
+              });
+            }
+          });
+        }
+      });
+    }
+  });
+
+  return calculatedColumns;
 };

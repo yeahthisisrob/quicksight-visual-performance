@@ -7,12 +7,15 @@ import {
   FunctionCategoryKeys,
   isLACFunction,
   getStandardFunctionName,
+  getFunctionCategoryKey,
 } from "./functionCategories";
 import {
   preprocessRankFunction,
   preprocessLACAFunc,
   preprocessOverFunction,
   preprocessDefaultFunction,
+  preprocessInNotInFunction,
+  preprocessIfelseFunction,
 } from "./preprocessFunctions";
 
 const parser = new Parser();
@@ -20,29 +23,31 @@ const parser = new Parser();
 const addBackticks = (arg: string): string => `\`${arg.trim()}\``;
 
 // Pre-process SQL to replace custom functions with standard SQL syntax
-const preprocessSQL = (sql: string): { sql: string } => {
+export const preprocessSQL = (sql: string): { sql: string } => {
   const regex = /(\w+)\(([^()]*(?:\([^()]*\)[^()]*)*)\)/g;
 
   const processedSQL = sql.replace(
     regex,
     (match, funcName: string, args: string) => {
-      const standardFuncName = getStandardFunctionName(funcName);
+      const func = getFunctionCategoryKey(funcName);
       let processedFunc;
 
-      if (standardFuncName) {
-        if (standardFuncName.toLowerCase().includes("rank")) {
-          ({ processedFunc } = preprocessRankFunction(standardFuncName, args));
-        } else if (isLACFunction(standardFuncName)) {
-          ({ processedFunc } = preprocessLACAFunc(standardFuncName, args));
-        } else if (standardFuncName.toLowerCase().endsWith("over")) {
-          ({ processedFunc } = preprocessOverFunction(standardFuncName, args));
+      if (func) {
+        if (func.includes("RANK")) {
+          ({ processedFunc } = preprocessRankFunction(func, args));
+        } else if (isLACFunction(funcName)) {
+          ({ processedFunc } = preprocessLACAFunc(func, args));
+        } else if (func.endsWith("OVER")) {
+          ({ processedFunc } = preprocessOverFunction(func, args));
+        } else if (func === "IN" || func === "NOTIN") {
+          ({ processedFunc } = preprocessInNotInFunction(func, args));
+        } else if (func === "IFELSE") {
+          ({ processedFunc } = preprocessIfelseFunction(func, args));
         } else {
-          ({ processedFunc } = preprocessDefaultFunction(
-            standardFuncName,
-            args,
-          ));
+          ({ processedFunc } = preprocessDefaultFunction(func, args));
         }
       } else {
+        console.log(`Function not found: ${funcName}`);
         ({ processedFunc } = preprocessDefaultFunction(funcName, args));
       }
 
@@ -84,6 +89,9 @@ export const customParser = (sql: string): string => {
   replacedSQL = replacedSQL.replace(/\{([^}]+)\}/g, (match, p1: string) =>
     addBackticks(p1),
   );
+
+  // Remove all instances of '\\n', '\n', and actual newline characters
+  replacedSQL = replacedSQL.replace(/\n/g, "");
 
   const { sql: processedSQL } = preprocessSQL(replacedSQL);
 

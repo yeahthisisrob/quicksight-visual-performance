@@ -12,21 +12,31 @@ import {
   Chip,
   ListItemButton,
   Popover,
+  Tooltip,
 } from "@mui/material";
 import { KeyboardArrowDown, KeyboardArrowRight } from "@mui/icons-material";
 import Icon from "@mdi/react";
-import { chartIcons } from "../constants/icons";
+import { chartIcons, dataSourceIcons } from "../constants/icons";
 import { NodeData } from "../types/interfaces";
 import { hierarchyLevels, DEFAULT_REQUEST_COUNT } from "../constants/constants";
 import { TreeMap, TreeNode } from "../utils/requestHierarchyTree";
 import Badge from "./Badge";
-import { badgeConfig } from "../constants/badgeConfig"; // Import the badge configuration
+import { badgeConfig } from "../constants/badgeConfig";
 
 interface VisualRequestsProps {
   hierarchy: TreeMap<NodeData>;
   selectedCid: string | null;
-  onCidClick: (cid: string) => void;
+  onCidClick: (cid: string, level?: number) => void;
   highlightedRequestId: string | null;
+  aggLevel: "Dashboard/Analysis" | "Sheet" | "DataSet" | "Visual" | "Request";
+  onAggLevelChange: (
+    newAggLevel:
+      | "Dashboard/Analysis"
+      | "Sheet"
+      | "DataSet"
+      | "Visual"
+      | "Request",
+  ) => void;
 }
 
 const VisualRequests: React.FC<VisualRequestsProps> = ({
@@ -34,6 +44,8 @@ const VisualRequests: React.FC<VisualRequestsProps> = ({
   selectedCid,
   onCidClick,
   highlightedRequestId,
+  aggLevel,
+  onAggLevelChange,
 }) => {
   const [open, setOpen] = useState<{ [key: string]: boolean }>({
     Dashboards: true,
@@ -105,7 +117,9 @@ const VisualRequests: React.FC<VisualRequestsProps> = ({
   };
 
   const renderError = (errorCode?: string, internalMessage?: string) => (
-    <Chip label={errorCode || "Unknown Error"} color="error" size="small" />
+    <Tooltip title={internalMessage || ""}>
+      <Chip label={errorCode || "Unknown Error"} color="error" size="small" />
+    </Tooltip>
   );
 
   const renderTags = (tags: { [key: string]: boolean }) => {
@@ -178,11 +192,12 @@ const VisualRequests: React.FC<VisualRequestsProps> = ({
       const startTime = data.startTime;
       const endTime = data.endTime;
       const requestCount = data.requestCount || DEFAULT_REQUEST_COUNT;
-      const parsedExpressionCount = data.parsedExpressionCount;
+      const cost = data.cost;
       const status = hasError ? "ERROR" : "OK";
 
       switch (level) {
-        case hierarchyLevels.Dashboards || hierarchyLevels.Analyses:
+        case hierarchyLevels.Dashboards:
+        case hierarchyLevels.Analyses:
           icon = (
             <Icon
               path={chartIcons.default}
@@ -192,7 +207,8 @@ const VisualRequests: React.FC<VisualRequestsProps> = ({
           );
           labelPrefix = "";
           break;
-        case hierarchyLevels.DashboardId || hierarchyLevels.AnalysisId:
+        case hierarchyLevels.DashboardId:
+        case hierarchyLevels.AnalysisId:
           if (data.dashboardId) {
             icon = (
               <Icon
@@ -223,6 +239,21 @@ const VisualRequests: React.FC<VisualRequestsProps> = ({
           );
           labelPrefix = "Sheet";
           break;
+        case hierarchyLevels.DataSourceId:
+          const dataSourceType = data.dataSourceType;
+          icon = (
+            <Tooltip title={dataSourceType || "Unknown"} arrow>
+              <div style={{ display: "inline-block" }}>
+                <Icon
+                  path={dataSourceIcons.default}
+                  size={1}
+                  style={{ color: "#9e9e9e", marginRight: "8px" }}
+                />
+              </div>
+            </Tooltip>
+          );
+          labelPrefix = "Dataset";
+          break;
         case hierarchyLevels.VisualId:
           const visualType = data.visualType || "default";
           icon = (
@@ -251,7 +282,7 @@ const VisualRequests: React.FC<VisualRequestsProps> = ({
           labelPrefix = "Request";
           break;
         default:
-          return elements; // Skip unknown levels
+          return elements;
       }
 
       const name =
@@ -260,6 +291,7 @@ const VisualRequests: React.FC<VisualRequestsProps> = ({
           : data.sheetName ||
             data.dashboardName ||
             data.analysisName ||
+            data.dataSourceName ||
             data.visualName ||
             key;
 
@@ -277,7 +309,20 @@ const VisualRequests: React.FC<VisualRequestsProps> = ({
               {level === hierarchyLevels.RequestId ? (
                 <ListItemButton
                   selected={selectedCid === key}
-                  onClick={() => onCidClick(key)}
+                  onClick={() => {
+                    onCidClick(key);
+                    onAggLevelChange(
+                      level === hierarchyLevels.DashboardId
+                        ? "Dashboard/Analysis"
+                        : level === hierarchyLevels.SheetId
+                          ? "Sheet"
+                          : level === hierarchyLevels.DataSourceId
+                            ? "DataSet"
+                            : level === hierarchyLevels.VisualId
+                              ? "Visual"
+                              : "Request",
+                    );
+                  }}
                   sx={{ flex: 1 }}
                 >
                   <div style={{ width: "12px" }} />
@@ -292,10 +337,30 @@ const VisualRequests: React.FC<VisualRequestsProps> = ({
                     renderError(data.errorCode, data.internalMessage)}
                 </ListItemButton>
               ) : (
-                <>
+                <ListItemButton
+                  selected={selectedCid === key}
+                  onClick={() => {
+                    onCidClick(key);
+                    onAggLevelChange(
+                      level === hierarchyLevels.DashboardId
+                        ? "Dashboard/Analysis"
+                        : level === hierarchyLevels.SheetId
+                          ? "Sheet"
+                          : level === hierarchyLevels.DataSourceId
+                            ? "DataSet"
+                            : level === hierarchyLevels.VisualId
+                              ? "Visual"
+                              : "Request",
+                    );
+                  }}
+                  sx={{ flex: 1 }}
+                >
                   <IconButton
                     size="small"
-                    onClick={() => handleToggle(currentKey)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleToggle(currentKey);
+                    }}
                   >
                     {open[currentKey] ? (
                       <KeyboardArrowDown fontSize="small" />
@@ -310,7 +375,7 @@ const VisualRequests: React.FC<VisualRequestsProps> = ({
                       ? key
                       : `${labelPrefix}: ${name}`}
                   </Typography>
-                </>
+                </ListItemButton>
               )}
             </TableCell>
             <TableCell align="center">
@@ -336,7 +401,7 @@ const VisualRequests: React.FC<VisualRequestsProps> = ({
               {typeof duration === "number" ? duration.toFixed(2) : "N/A"}s
             </TableCell>
             <TableCell align="center">{requestCount}</TableCell>
-            <TableCell align="center">{parsedExpressionCount}</TableCell>
+            <TableCell align="center">{cost || "N/A"}</TableCell>
           </TableRow>
           {open[currentKey] && renderHierarchy(childNode, level + 1)}
         </React.Fragment>,
@@ -363,7 +428,7 @@ const VisualRequests: React.FC<VisualRequestsProps> = ({
               <TableCell align="center">Actual Duration</TableCell>
               <TableCell align="center">Sequential Duration</TableCell>
               <TableCell align="center">Request Count</TableCell>
-              <TableCell align="center">Parsed Expressions</TableCell>
+              <TableCell align="center">Cost</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>{renderHierarchy(hierarchy.root, 0)}</TableBody>

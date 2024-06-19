@@ -20,7 +20,9 @@ import {
   getParameterData,
   getFilterGroups,
   getFilters,
-  getDataSourceData, // Import the function
+  getDataSourceData,
+  getHeaderData,
+  getCalculatedColumns,
 } from "./parsers/apiOperationParser";
 import { parseSQL } from "./sql/customParser";
 import { ExpressionVisitor } from "./sql/visitors/expressionVisitor";
@@ -59,7 +61,9 @@ export const buildHierarchy = (
   const parameterData = getParameterData(apiMessages);
   const filterGroups = getFilterGroups(apiMessages);
   const filters = getFilters(apiMessages);
-  const dataSourceData = getDataSourceData(apiMessages); // Retrieve the data source data
+  const dataSourceData = getDataSourceData(apiMessages);
+  const headerData = getHeaderData(apiMessages);
+  const dataSourceOverlays = getCalculatedColumns(apiMessages);
 
   let dashboardCount = 0;
   let analysisCount = 0;
@@ -99,12 +103,12 @@ export const buildHierarchy = (
       isEnableOtherBucket,
     } = extractRawDataFromMessage(messages);
 
-    // Add dataset calculated fields to the extracted calculated fields
     const datasetCalculatedFields =
       dataSourceData.get(dataSourceId)?.calculatedColumns || [];
     datasetCalculatedFields.forEach((field: any) => {
       const expression: CalculatedField = {
         alias: field.name,
+        userAlias: dataSourceOverlays.get(field.name)?.name || field.name,
         parsedExpression: null,
         cost: 0,
         type: "calculatedField",
@@ -125,12 +129,21 @@ export const buildHierarchy = (
       ...extractedMetrics,
     ];
 
-    // Mark expressions used in query generation
+    const parsedExpressions: { [key: string]: Expression } = {};
+
+    // First Pass: Parse expressions and populate parsedExpressions map
+    const calculatedFieldAliases = new Set(
+      allExpressions
+        .filter((expr) => expr.type === "calculatedField")
+        .map((expr) => expr.alias),
+    );
+
     allExpressions.forEach((expression) => {
-      // Skip parsing for Metrics with CUSTOM aggregation
       if (
-        ["metric", "conditionalFormattingMetric"].includes(expression.type) &&
-        (expression as Metric).aggregation === "CUSTOM"
+        (["field"].includes(expression.type) &&
+          calculatedFieldAliases.has(expression.alias)) ||
+        (["metric", "conditionalFormattingMetric"].includes(expression.type) &&
+          (expression as Metric).aggregation === "CUSTOM")
       ) {
         expression.isParsed = false;
         expression.usedInQueryGen = true;
@@ -158,22 +171,41 @@ export const buildHierarchy = (
       ) {
         expression.usedInQueryGen = true;
       }
+
+      if (expression.isParsed && expression.parsedExpression) {
+        parsedExpressions[expression.alias] = expression;
+      }
     });
 
+    // Second Pass: Calculate costs and depths
     let totalCost = 0;
-    allExpressions.forEach((expression) => {
-      if (!expression.isParsed || !expression.parsedExpression) {
-        return;
-      }
+    Object.values(parsedExpressions).forEach((expression) => {
       const expressionVisitor = new ExpressionVisitor(
-        allExpressions,
+        Object.values(parsedExpressions),
         parameterMap,
       );
       expressionVisitor.visit(expression.parsedExpression);
-      const isAggregation = expressionVisitor.isAggregation;
-      const isStringFunction = expressionVisitor.isStringFunction;
       const expressionCost = expressionVisitor.totalCost;
+      const maxDepth = expressionVisitor.getMaxDepth
+        ? expressionVisitor.getMaxDepth()
+        : 0;
       expression.cost = expressionCost;
+      expression.maxDepth = maxDepth;
+
+      totalCost += expressionCost;
+    });
+
+    // Third Pass: Assign costs and depths to metrics and conditional formatting metrics
+    allExpressions.forEach((expression) => {
+      expression.userAlias =
+        dataSourceOverlays.get(expression.alias)?.name || expression.alias;
+      if (["metric", "conditionalFormattingMetric"].includes(expression.type)) {
+        const calculatedField = parsedExpressions[expression.alias];
+        if (calculatedField) {
+          expression.cost = calculatedField.cost;
+          expression.maxDepth = calculatedField.maxDepth;
+        }
+      }
     });
 
     totalCost = allExpressions.reduce((sum, expr) => sum + (expr.cost ?? 0), 0);
@@ -196,7 +228,6 @@ export const buildHierarchy = (
       requestDurations.push({ requestId, duration: parseFloat(duration) });
     }
 
-    // Add nodes to the hierarchy
     const dashboardNode = hierarchy.addNode([], typeKey, {
       ...initializeNodeData(typeKey),
       dashboardId,
@@ -217,8 +248,26 @@ export const buildHierarchy = (
       sheetName: sheetNames.get(sheetId) || sheetId,
     });
 
-    const visualNode = hierarchy.addNode(
+    const dataSourceDataEntry = dataSourceData.get(dataSourceId);
+    const dataSourceName = dataSourceDataEntry?.name || dataSourceId;
+    const dataSourceType = dataSourceDataEntry?.databaseType
+      ? dataSourceDataEntry.databaseType
+      : dataSourceDataEntry?.sourceType || "Unknown";
+    const uniquedataSourceId = sheetId + "_" + dataSourceId;
+
+    const dataSourceNode = hierarchy.addNode(
       [typeKey, explorationId, sheetId],
+      uniquedataSourceId,
+      {
+        ...initializeNodeData(uniquedataSourceId),
+        dataSourceId,
+        dataSourceName,
+        dataSourceType, // Ensure dataSourceType is assigned here
+      },
+    );
+
+    const visualNode = hierarchy.addNode(
+      [typeKey, explorationId, sheetId, uniquedataSourceId],
       visualId,
       {
         ...initializeNodeData(visualId),
@@ -229,15 +278,14 @@ export const buildHierarchy = (
     );
 
     const tags: { [key: string]: boolean } = {
-      highCost: totalCost > 50,
+      highCost: totalCost > 150,
       parsingError,
     };
 
-    // Sort tags by priority before adding the request node
     const sortedTags = sortTagsByPriority(tags);
 
     const requestNode = hierarchy.addNode(
-      [typeKey, explorationId, sheetId, visualId],
+      [typeKey, explorationId, sheetId, uniquedataSourceId, visualId],
       requestId,
       {
         ...initializeNodeData(),
@@ -255,7 +303,6 @@ export const buildHierarchy = (
           isTotals,
           isComputationsOnly,
           isEnableOtherBucket: !isEnableOtherBucket,
-          // Add more badges here
         },
         fieldMap: { ...extractedFieldMap },
         calculatedFieldMap: { ...extractedCalculatedFieldMap },
@@ -268,26 +315,31 @@ export const buildHierarchy = (
         dashboardId,
         analysisId,
         sheetId,
+        dataSourceId,
         visualId,
         visualType,
         dashboardName: dashboardNames.get(dashboardId) || dashboardId,
         sheetName: sheetNames.get(sheetId) || sheetId,
+        dataSourceName,
+        dataSourceType, // Ensure dataSourceType is assigned here
         visualName: visualNames.get(visualId) || visualId,
         analysisName: analysisNames.get(analysisId) || analysisId,
         expressions: [...allExpressions],
+        userAgent: headerData.userAgent,
+        origin: headerData.origin,
+        requestId: requestId,
+        cost: totalCost,
       },
     );
 
-    // Add parameters to the request node
     if (requestNode) {
       const requestParameterMap = requestNode.data.parameterMap;
       const parameters = Object.keys(requestParameterMap)
         .map((paramId) => parameterData.get(paramId))
-        .filter((param) => param !== undefined); // Filter out undefined values
+        .filter((param) => param !== undefined);
       requestNode.data.parameters = parameters;
     }
 
-    // Add filters and filter groups to the request node
     if (requestNode) {
       const scopedFilterGroups = Array.from(filterGroups.values()).filter(
         (group) => {
@@ -299,17 +351,15 @@ export const buildHierarchy = (
         },
       );
 
-      const associatedFilters = scopedFilterGroups.flatMap(
-        (group) =>
-          group.filterIds
-            .map((filterId: string) => filters.get(filterId))
-            .filter(Boolean), // Remove null values
+      const associatedFilters = scopedFilterGroups.flatMap((group) =>
+        group.filterIds
+          .map((filterId: string) => filters.get(filterId))
+          .filter(Boolean),
       );
 
       requestNode.data.filters = associatedFilters;
     }
 
-    // Merge extracted data from messages
     expressions.push(...allExpressions);
     Object.assign(parameterMap, extractedParameterMap);
     fields.push(...extractedFields);
@@ -320,10 +370,16 @@ export const buildHierarchy = (
     visualCount = visualIds.size;
     requestCount = requestIds.size;
 
-    if (!requestNode || !visualNode || !sheetNode || !explorationNode) return;
+    if (
+      !requestNode ||
+      !visualNode ||
+      !sheetNode ||
+      !dataSourceNode ||
+      !explorationNode
+    )
+      return;
   });
 
-  // Identify long durations at the request level
   if (requestDurations.length > 0) {
     const mean =
       requestDurations.reduce((sum, { duration }) => sum + duration, 0) /
@@ -349,7 +405,6 @@ export const buildHierarchy = (
     });
   }
 
-  // Calculate group metrics
   calculateGroupMetrics(hierarchy.root);
 
   return {
@@ -370,8 +425,8 @@ export const buildHierarchy = (
 const sortTagsByPriority = (tags: { [key: string]: boolean }) => {
   const priorities: { [key: string]: number } = {
     highCost: 2,
-    longDuration: 3,
-    parsingError: 1,
+    longDuration: 1,
+    parsingError: 3,
   };
   return Object.keys(tags)
     .filter((tag) => tags[tag])
@@ -387,7 +442,6 @@ const sortTagsByPriority = (tags: { [key: string]: boolean }) => {
 
 const calculateGroupMetrics = (node: TreeNode<NodeData>) => {
   if (node.children.size === 0) {
-    // If the node has no children, retain its current error state and duration
     return;
   }
 
@@ -397,14 +451,16 @@ const calculateGroupMetrics = (node: TreeNode<NodeData>) => {
 
   const durations: number[] = [];
   const requestCounts: number[] = [];
-  let hasError = node.data.__hasError; // Retain the error state of the current node
+  let hasError = node.data.__hasError;
   let parsedExpressionCount = node.data.parsedExpressionCount || 0;
   let highCostFunctionCount = node.data.highCostFunctionCount || 0;
   let tags = { ...node.data.tags };
+  let totalCost = node.data.cost || 0;
 
-  // Initialize startTime and endTime to the values of the first child
   let startTime: number | null = null;
   let endTime: number | null = null;
+  let origin: string | null = node.data.origin || null;
+  let userAgent: string | null = node.data.userAgent || null;
 
   node.children.forEach((child) => {
     durations.push(child.data.duration);
@@ -412,27 +468,31 @@ const calculateGroupMetrics = (node: TreeNode<NodeData>) => {
 
     parsedExpressionCount += child.data.parsedExpressionCount || 0;
     highCostFunctionCount += child.data.highCostFunctionCount || 0;
+    totalCost += child.data.cost || 0;
 
     if (child.data.__hasError) hasError = true;
 
-    // Propagate tags up the tree
     Object.keys(child.data.tags).forEach((tag) => {
       if (child.data.tags[tag]) {
         tags[tag] = true;
       }
     });
 
-    // Propagate error status up the tree
     if (child.data.errorCode) {
       hasError = true;
     }
 
-    // Update startTime and endTime to be the min and max of all children
     if (startTime === null || child.data.startTime < startTime) {
       startTime = child.data.startTime;
     }
     if (endTime === null || child.data.endTime > endTime) {
       endTime = child.data.endTime;
+    }
+    if (child.data.origin) {
+      origin = child.data.origin;
+    }
+    if (child.data.userAgent) {
+      userAgent = child.data.userAgent;
     }
   });
 
@@ -450,21 +510,25 @@ const calculateGroupMetrics = (node: TreeNode<NodeData>) => {
   node.data.__hasError = hasError;
   node.data.parsedExpressionCount = parsedExpressionCount;
   node.data.highCostFunctionCount = highCostFunctionCount;
+  node.data.cost = totalCost;
 
-  // If any child has a highCost tag, set it on the current node
   if (tags.highCost || highCostFunctionCount > 2) {
     tags.highCost = true;
   }
 
-  // Sort tags by priority before assigning back to node.data.tags
   node.data.tags = sortTagsByPriority(tags);
 
-  // Set the node's startTime and endTime to the calculated values
   if (startTime !== null) {
     node.data.startTime = startTime;
   }
   if (endTime !== null) {
     node.data.endTime = endTime;
+  }
+  if (origin !== null) {
+    node.data.origin = origin;
+  }
+  if (userAgent !== null) {
+    node.data.userAgent = userAgent;
   }
 };
 

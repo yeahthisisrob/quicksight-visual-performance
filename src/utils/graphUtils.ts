@@ -40,11 +40,9 @@ export const getDependencyChain = (
   }
 
   const dependencyVisitor = new ExpressionVisitor(expressions, parameterMap);
-  console.log("expression.parsedExpression", expression.parsedExpression);
   dependencyVisitor.visit(expression.parsedExpression);
 
   const dependencies = dependencyVisitor.getDependencies();
-  console.log("dependencies " + JSON.stringify(dependencies));
   const chain = [];
 
   if (expression.type === "calculatedField") {
@@ -52,6 +50,42 @@ export const getDependencyChain = (
       alias: expression.alias,
       expression: expression.expression,
       type: "calculatedField",
+      level: 0,
+      cost: expression.cost || 0,
+      docLink: dependencies.find((dep) => dep.alias === expression.alias)
+        ?.docLink,
+    });
+  }
+
+  if (expression.type === "filterExpression") {
+    chain.push({
+      alias: expression.alias,
+      expression: expression.expression,
+      type: "filterExpression",
+      level: 0,
+      cost: expression.cost || 0,
+      docLink: dependencies.find((dep) => dep.alias === expression.alias)
+        ?.docLink,
+    });
+  }
+
+  if (expression.type === "conditionalFormattingMetric") {
+    chain.push({
+      alias: expression.alias,
+      expression: expression.expression,
+      type: "conditionalFormattingMetric",
+      level: 0,
+      cost: expression.cost || 0,
+      docLink: dependencies.find((dep) => dep.alias === expression.alias)
+        ?.docLink,
+    });
+  }
+
+  if (expression.type === "metric") {
+    chain.push({
+      alias: expression.alias,
+      expression: expression.expression,
+      type: "metric",
       level: 0,
       cost: expression.cost || 0,
       docLink: dependencies.find((dep) => dep.alias === expression.alias)

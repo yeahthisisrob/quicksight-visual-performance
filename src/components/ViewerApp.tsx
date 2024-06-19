@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { Box } from "@mui/material";
-import { WebSocketMessage, HarLog } from "../types/interfaces";
+import { WebSocketMessage, APIMessage, HarLog } from "../types/interfaces";
 import { analyzeHarFile } from "../utils/harAnalyzer";
 import mockHar from "../../__mocks__/mockHar.json";
 import ViewerLayout from "./ViewerLayout";
@@ -22,9 +22,15 @@ const ViewerApp: React.FC = () => {
     | "filterExpressions"
     | "calculatedFields"
     | "webSocketMessages"
+    | "apiMessages" // Add 'apiMessages' to activeSection type
+    | "awsSupport"
+    | "parameters"
   >("summary");
   const [highlightedField, setHighlightedField] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [apiMessages, setApiMessages] = useState<Map<string, APIMessage>>(
+    new Map(),
+  );
 
   const isMounted = useRef(true);
 
@@ -39,26 +45,39 @@ const ViewerApp: React.FC = () => {
     const loadMessages = async () => {
       try {
         let hierarchyData;
+        let apiMessageData: Map<string, APIMessage> = new Map();
         if (process.env.NODE_ENV === "development") {
           const result = await analyzeHarFile(
             mockHar as { log: HarLog },
             () => {},
           ); // No-op function for updateProgress
           hierarchyData = result.hierarchy;
+          apiMessageData = result.apiMessages; // Assuming apiMessages are returned here
         } else {
           await new Promise((resolve) => {
-            chrome.storage.local.get(["hierarchy"], (items) => {
+            chrome.storage.local.get(["hierarchy", "apiMessages"], (items) => {
               console.log("Items retrieved from storage:", items);
               if (items.hierarchy) {
                 hierarchyData = objectToTreeMap(JSON.parse(items.hierarchy));
+              }
+              if (items.apiMessages) {
+                const parsedApiMessages = new Map<string, APIMessage>(
+                  JSON.parse(items.apiMessages),
+                );
+                apiMessageData = parsedApiMessages;
               }
               resolve(null);
             });
           });
         }
 
-        if (isMounted.current && hierarchyData) {
-          setHierarchy(hierarchyData);
+        if (isMounted.current) {
+          if (hierarchyData) {
+            setHierarchy(hierarchyData);
+          }
+          if (apiMessageData) {
+            setApiMessages(apiMessageData); // Set the API messages
+          }
         }
       } catch (error) {
         console.error("Error loading messages:", error);
@@ -90,7 +109,10 @@ const ViewerApp: React.FC = () => {
       | "metrics"
       | "filterExpressions"
       | "calculatedFields"
-      | "webSocketMessages",
+      | "webSocketMessages"
+      | "apiMessages" // Add 'apiMessages' to newValue type
+      | "awsSupport"
+      | "parameters",
   ) => {
     setActiveSection(newValue);
   };
@@ -126,6 +148,7 @@ const ViewerApp: React.FC = () => {
           selectedMessage={selectedMessage}
           activeSection={activeSection}
           hierarchy={hierarchy}
+          apiMessages={apiMessages} // Pass apiMessages prop to ViewerLayout
           handleCidClick={handleCidClick}
           handleListItemClick={handleListItemClick}
           handleSectionChange={handleSectionChange}

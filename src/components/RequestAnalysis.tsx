@@ -1,6 +1,6 @@
 import React from "react";
 import { Box, Grid } from "@mui/material";
-import { WebSocketMessage } from "../types/interfaces";
+import { WebSocketMessage, APIMessage } from "../types/interfaces";
 import { filterHierarchyByRequestId } from "../utils/hierarchyBuilder";
 import Summary from "./Summary";
 import Fields from "./Fields";
@@ -8,7 +8,9 @@ import Metrics from "./Metrics";
 import FilterExpressions from "./FilterExpressions";
 import CalculatedFields from "./CalculatedFields";
 import MessagesLayout from "./MessagesLayout";
-import Parameters from "./Parameters"; // Import the Parameters component
+import APIMessages from "./APIMessages"; // Import the new APIMessages component
+import Parameters from "./Parameters";
+import AWSSupport from "./AWSSupport"; // Import the new AWSSupport component
 
 interface RequestAnalysisProps {
   hierarchy: any;
@@ -20,11 +22,14 @@ interface RequestAnalysisProps {
     | "filterExpressions"
     | "calculatedFields"
     | "webSocketMessages"
-    | "parameters"; // Add 'parameters' to activeSection type
+    | "apiMessages"
+    | "parameters"
+    | "awsSupport"; // Add 'awsSupport' to activeSection type
   selectedMessage: WebSocketMessage | null;
   handleListItemClick: (message: WebSocketMessage) => void;
   handleHighlightCalculatedField: (name: string) => void;
   highlightedField: string | null;
+  apiMessages: Map<string, APIMessage>; // Add apiMessages prop
 }
 
 const RequestAnalysis: React.FC<RequestAnalysisProps> = ({
@@ -35,6 +40,7 @@ const RequestAnalysis: React.FC<RequestAnalysisProps> = ({
   handleListItemClick,
   handleHighlightCalculatedField,
   highlightedField,
+  apiMessages, // Add apiMessages prop
 }) => {
   const filteredHierarchy = selectedCid
     ? filterHierarchyByRequestId(hierarchy, selectedCid)
@@ -72,6 +78,14 @@ const RequestAnalysis: React.FC<RequestAnalysisProps> = ({
             selectedMessage={selectedMessage}
             onMessageClick={handleListItemClick}
           />
+        )}
+        {activeSection === "apiMessages" && (
+          <APIMessages
+            apiMessages={apiMessages} // Pass apiMessages to APIMessages
+          />
+        )}
+        {activeSection === "awsSupport" && (
+          <AWSSupport hierarchy={filteredHierarchy} />
         )}
       </Box>
     </Grid>

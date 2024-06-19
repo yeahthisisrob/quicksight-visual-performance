@@ -32,6 +32,11 @@ const Parameters: React.FC<ParametersProps> = ({ hierarchy }) => {
     traverseHierarchy(hierarchy.root);
   }, [hierarchy]);
 
+  // Remove duplicates based on parameterId
+  const uniqueParameters = Array.from(
+    new Map(parameters.map((param) => [param.parameterId, param])).values(),
+  );
+
   const handleSort = (sortKey: string) => {
     const order = sortBy === sortKey && sortOrder === "asc" ? "desc" : "asc";
     setSortBy(sortKey);
@@ -41,7 +46,7 @@ const Parameters: React.FC<ParametersProps> = ({ hierarchy }) => {
   const [sortBy, setSortBy] = useState("parameterId");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
-  const sortedParameters = [...parameters].sort((a, b) => {
+  const sortedParameters = [...uniqueParameters].sort((a, b) => {
     if (sortBy === "parameterId") {
       return sortOrder === "asc"
         ? a.parameterId.localeCompare(b.parameterId)

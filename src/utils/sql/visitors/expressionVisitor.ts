@@ -1,4 +1,3 @@
-// utils/sql/visitors/expressionVisitor.ts
 import {
   SqlNode,
   SqlAggrFuncNode,
@@ -10,11 +9,16 @@ import {
   SqlOrderByNode,
 } from "../sqlNodes";
 import { BaseSqlVisitor } from "./sqlVisitor";
-import { functionCategories, isLACFunction } from "../functionCategories";
+import {
+  functionCategories,
+  getStandardFunctionName,
+} from "../functionCategories";
 import { Expression } from "../../../types/interfaces";
 import { getDocLink } from "../../docLinks";
+import { v4 as uuidv4 } from "uuid"; // Add uuid for generating unique IDs
 
 interface Dependency {
+  id: string;
   alias: string;
   expression: string;
   type: string;
@@ -30,9 +34,8 @@ export class ExpressionVisitor extends BaseSqlVisitor {
   private dependencies: Dependency[] = [];
   private expressions: Expression[];
   private parameterMap: { [key: string]: string };
-  private seenIds = new Set<string>();
-  private seenAliases = new Set<string>();
-  private currentLevel: number = 0; // Track the current level
+  private currentLevel: number = 0;
+  private maxDepth: number = 0;
 
   constructor(
     expressions: Expression[],
@@ -59,8 +62,15 @@ export class ExpressionVisitor extends BaseSqlVisitor {
     return this.dependencies;
   }
 
+  getMaxDepth(): number {
+    return this.maxDepth;
+  }
+
   private increaseDepth(): void {
     this.currentLevel++;
+    if (this.currentLevel > this.maxDepth) {
+      this.maxDepth = this.currentLevel;
+    }
   }
 
   private decreaseDepth(): void {
@@ -73,10 +83,6 @@ export class ExpressionVisitor extends BaseSqlVisitor {
   } {
     let cost = functionCategories[name]?.cost || 1;
     let category = functionCategories[name]?.category || "";
-
-    if (isLACFunction(name)) {
-      cost = 7; // Special cost for LAC functions
-    }
 
     return { cost, category };
   }
@@ -116,23 +122,16 @@ export class ExpressionVisitor extends BaseSqlVisitor {
   }
 
   visitColumnRef(node: SqlColumnRefNode): void {
-    console.log(
-      `Visiting column reference: ${node.column}, currentLevel: ${this.currentLevel}`,
-    );
     if (typeof node.column === "string") {
       this.extractColumnRefDependency(node);
     }
   }
 
   visitExprList(node: SqlExprListNode): void {
-    console.log(`Visiting expression list, currentLevel: ${this.currentLevel}`);
     super.visitExprList(node);
   }
 
   visitBinaryExpr(node: SqlBinaryExprNode): void {
-    console.log(
-      `Visiting binary expression: ${node.operator}, currentLevel: ${this.currentLevel}`,
-    );
     super.visitBinaryExpr(node);
   }
 
@@ -171,92 +170,105 @@ export class ExpressionVisitor extends BaseSqlVisitor {
   }
 
   private extractFunctionDependency(node: SqlFunctionNode): void {
-    const alias = node.name;
-    const uniqueId = node.id ? node.id : alias;
+    const standardFuncName = getStandardFunctionName(node.name) || node.name;
+    const alias = standardFuncName;
+    const uniqueId = node.id ? node.id : uuidv4(); // Generate a unique ID
     const docLink = getDocLink(alias);
-    const { cost } = this.getFunctionCostAndCategory(alias);
+    const { cost } = this.getFunctionCostAndCategory(node.name);
 
-    if (!this.seenIds.has(uniqueId)) {
-      this.seenIds.add(uniqueId);
-      this.dependencies.push({
-        alias: alias,
-        expression: "",
-        type: "function",
-        cost: cost,
-        level: this.currentLevel,
-        docLink: docLink,
-      });
-    }
+    this.dependencies.push({
+      id: uniqueId,
+      alias: alias,
+      expression: "",
+      type: "function",
+      cost: cost,
+      level: this.currentLevel,
+      docLink: docLink,
+    });
   }
 
   private extractAggrFuncDependency(node: SqlAggrFuncNode): void {
-    const alias = node.name;
-    const uniqueId = node.id ? node.id : alias;
+    const standardFuncName = getStandardFunctionName(node.name) || node.name;
+    const alias = standardFuncName;
+    const uniqueId = node.id ? node.id : uuidv4(); // Generate a unique ID
     const docLink = getDocLink(alias);
-    const { cost } = this.getFunctionCostAndCategory(alias);
+    const { cost } = this.getFunctionCostAndCategory(node.name);
 
-    if (!this.seenIds.has(uniqueId)) {
-      this.seenIds.add(uniqueId);
-      this.dependencies.push({
-        alias: alias,
-        expression: "",
-        type: "aggr_func",
-        cost: cost,
-        level: this.currentLevel,
-        docLink: docLink,
-      });
-    }
+    this.dependencies.push({
+      id: uniqueId,
+      alias: alias,
+      expression: "",
+      type: "aggr_func",
+      cost: cost,
+      level: this.currentLevel,
+      docLink: docLink,
+    });
   }
 
   private extractColumnRefDependency(node: SqlColumnRefNode): void {
     const alias = node.column;
+    const uniqueId = node.id ? node.id : uuidv4(); // Generate a unique ID
 
-    if (!this.seenAliases.has(alias)) {
-      this.seenAliases.add(alias);
-      if (this.parameterMap[alias]) {
-        this.dependencies.push({
-          alias: alias,
-          expression: this.parameterMap[alias],
-          type: "parameter",
-          cost: 1,
-          level: this.currentLevel,
-        });
-      } else {
-        const calculatedField = this.expressions.find(
-          (expr) => expr.alias === alias && expr.type === "calculatedField",
-        );
-        if (calculatedField) {
+    if (this.parameterMap[alias]) {
+      this.dependencies.push({
+        id: uniqueId,
+        alias: alias,
+        expression: this.parameterMap[alias],
+        type: "parameter",
+        cost: 0,
+        level: this.currentLevel,
+      });
+    } else {
+      const calculatedField = this.expressions.find(
+        (expr) => expr.alias === alias && expr.type === "calculatedField",
+      );
+      if (calculatedField) {
+        if (!calculatedField.parsedExpression) {
+          // Handle the parsing error
           this.dependencies.push({
+            id: uniqueId,
             alias: alias,
             expression: calculatedField.expression,
             type: "calculatedField",
             cost: calculatedField.cost ?? 0,
             level: this.currentLevel,
           });
-          this.increaseDepth();
-          this.visit(calculatedField.parsedExpression);
-          this.decreaseDepth();
+          return;
+        }
+
+        this.dependencies.push({
+          id: uniqueId,
+          alias: alias,
+          expression: calculatedField.expression,
+          type: "calculatedField",
+          cost: calculatedField.cost ?? 0,
+          level: this.currentLevel,
+        });
+        this.increaseDepth();
+        this.visit(calculatedField.parsedExpression);
+        this.decreaseDepth();
+      } else {
+        const field = this.expressions.find(
+          (expr) => expr.alias === alias && expr.type === "field",
+        );
+        if (field) {
+          this.dependencies.push({
+            id: uniqueId,
+            alias: alias,
+            expression: field.expression,
+            type: "field",
+            cost: field.cost ?? 0,
+            level: this.currentLevel,
+          });
         } else {
-          const field = this.expressions.find(
-            (expr) => expr.alias === alias && expr.type === "field",
-          );
-          if (field) {
-            this.dependencies.push({
-              alias: alias,
-              expression: field.expression,
-              type: "field",
-              cost: field.cost ?? 0,
-              level: this.currentLevel,
-            });
-          } else {
-            this.dependencies.push({
-              alias: alias,
-              expression: "",
-              type: "field",
-              cost: 0,
-              level: this.currentLevel,
-            });
-          }
+          this.dependencies.push({
+            id: uniqueId,
+            alias: alias,
+            expression: "",
+            type: "field",
+            cost: 0,
+            level: this.currentLevel,
+          });
         }
       }
     }

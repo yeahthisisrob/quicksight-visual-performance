@@ -1,4 +1,3 @@
-// icon.ts
 import {
   mdiChartBar,
   mdiChartPie,
@@ -13,7 +12,10 @@ import {
   mdiChartSankey,
   mdiChartBarStacked,
   mdiEarth,
+  mdiDatabaseOutline,
 } from "@mdi/js";
+
+import { siAmazons3 } from "simple-icons";
 
 interface IconMap {
   [key: string]: string;
@@ -51,4 +53,9 @@ export const chartIcons: IconMap = {
   WATERFALL: mdiTable,
   WORD_CLOUD: mdiChartBox,
   default: mdiChartBox,
+};
+
+export const dataSourceIcons: IconMap = {
+  S3_SOURCE: siAmazons3.path, // Amazon S3
+  default: mdiDatabaseOutline,
 };

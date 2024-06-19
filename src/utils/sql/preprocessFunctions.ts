@@ -1,6 +1,12 @@
 // utils/preprocessFunctions.ts
+import {
+  getFunctionCategoryKey,
+  getStandardFunctionName,
+  functionCategories,
+} from "./functionCategories";
 
 const addBackticks = (arg: string): string => `\`${arg.trim()}\``;
+const addSingleQuotes = (arg: string): string => "${arg.trim()}";
 
 export const preprocessRankFunction = (
   funcName: string,
@@ -64,18 +70,30 @@ export const preprocessLACAFunc = (
   const [measure, partitions] = args
     .split(/,(?![^\(]*\))/)
     .map((arg) => arg.trim());
-  let processedFunc = `${funcName}(${measure})`;
+
+  const standardFuncName = getStandardFunctionName(funcName) || funcName;
+  const func = getFunctionCategoryKey(standardFuncName) || funcName;
+
+  let processedFunc = `${func}(${measure})`;
 
   if (partitions && partitions.startsWith("[") && partitions.endsWith("]")) {
+    const lacFunc =
+      Object.entries(functionCategories).find(
+        ([key, value]) =>
+          value.standardFunction.toLowerCase() ===
+            standardFuncName.toLowerCase() && value.isLAC,
+      )?.[0] || func;
+
     const partitionList = partitions
       .slice(1, -1) // Remove square brackets
       .split(",")
       .map((p) => p.trim())
       .filter((p) => p)
-      .map(addBackticks)
       .join(", ");
-    const partitionClause = partitionList ? `, ${partitionList}` : "";
-    processedFunc = `${funcName}(${measure}${partitionClause})`;
+    const partitionClause = partitionList
+      ? `PARTITION BY ${partitionList}`
+      : "";
+    processedFunc = `${lacFunc}(${measure}) OVER (${partitionClause})`;
   }
 
   return { processedFunc };
@@ -88,19 +106,22 @@ export const preprocessOverFunction = (
   const [measure, partitions = "", level = ""] = args
     .split(/,(?![^\(]*\))/)
     .map((arg) => arg.trim()); // Split by comma not inside parentheses
+
   const partitionList =
     partitions.trim() === "[]"
       ? ""
       : partitions
+          .slice(1, -1) // Remove the outer square brackets
           .split(",")
           .map((p) => p.trim())
           .filter((p) => p)
-          .map(addBackticks)
           .join(", ");
+
   const partitionClause = partitionList ? `PARTITION BY ${partitionList}` : "";
   const levelClause = level ? ` ${addBackticks(level)}` : "";
+
   return {
-    processedFunc: `${funcName}(${measure}) OVER (${partitionClause}${levelClause ? " " + levelClause : ""})`,
+    processedFunc: `${funcName}(${measure}) OVER (${partitionClause})`,
   };
 };
 
@@ -113,4 +134,55 @@ export const preprocessDefaultFunction = (
     .map((arg) => arg.trim())
     .join(", "); // Split by comma not inside parentheses
   return { processedFunc: `${funcName}(${allArgs})` };
+};
+
+// New functions to handle `in` and `notin`
+export const preprocessInNotInFunction = (
+  funcName: string,
+  args: string,
+): { processedFunc: string } => {
+  const [column, values, inclusive] = args
+    .split(/,(?![^\(]*\))/)
+    .map((arg) => arg.trim());
+
+  const cleanedValues = values
+    .slice(1, -1) // Remove outer brackets
+    .split(/,(?![^\(]*\))/)
+    .map((value) => value.trim())
+    .map(addBackticks)
+    .join(", ");
+
+  const processedFunc = `${funcName.toUpperCase()}(${column})`;
+
+  return { processedFunc };
+};
+
+export const preprocessIfelseFunction = (
+  funcName: string,
+  args: string,
+): { processedFunc: string } => {
+  const parseIfElse = (args: string): string => {
+    const argumentsArray = args.split(/,(?![^\(]*\))/).map((arg) => arg.trim());
+
+    const processNestedIfElse = (
+      argsArray: string[],
+      index: number,
+    ): string => {
+      if (index >= argsArray.length - 1) {
+        return argsArray[index] || "NULL";
+      }
+
+      const condition = argsArray[index];
+      const thenExpression = argsArray[index + 1];
+      const elseExpression = processNestedIfElse(argsArray, index + 2);
+
+      return `ifelse(${condition}, ${thenExpression}, ${elseExpression})`;
+    };
+
+    return processNestedIfElse(argumentsArray, 0);
+  };
+
+  const processedFunc = parseIfElse(args);
+
+  return { processedFunc };
 };

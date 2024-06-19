@@ -46,7 +46,7 @@ export const getChipColor = (type: string) => {
 
 const renderDependencyChain = (expressionChain: any[]) => {
   return expressionChain.map((item) => (
-    <TableRow key={item.alias}>
+    <TableRow key={item.id}>
       <TableCell>
         <Box
           display="flex"
@@ -81,7 +81,9 @@ const renderDependencyChain = (expressionChain: any[]) => {
           </Paper>
         </Box>
       </TableCell>
-      <TableCell>{item.expression}</TableCell>
+      <TableCell sx={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+        {item.expression}
+      </TableCell>
       <TableCell>{item.cost}</TableCell>
     </TableRow>
   ));
@@ -99,10 +101,8 @@ const ExpressionGraphDialog: React.FC<ExpressionGraphDialogProps> = ({
     ? getDependencyChain(expression, parameterMap, expressions)
     : [];
 
-  const totalCost = expressionChain.reduce((sum, item) => sum + item.cost, 0);
-
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="xl" fullWidth>
       <DialogTitle>Parsed SQL Expression</DialogTitle>
       <DialogContent>
         {parseError ? (
@@ -113,9 +113,6 @@ const ExpressionGraphDialog: React.FC<ExpressionGraphDialogProps> = ({
           <>
             <Typography variant="h6">
               Dependency Chain for: {expression.alias}
-            </Typography>
-            <Typography variant="body1" gutterBottom>
-              Total Cost: {totalCost}
             </Typography>
             <Table>
               <TableBody>{renderDependencyChain(expressionChain)}</TableBody>

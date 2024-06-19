@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   Grid,
   Typography,
@@ -11,10 +11,11 @@ import {
   Tab,
   Divider,
 } from "@mui/material";
-import { WebSocketMessage } from "../types/interfaces";
+import { WebSocketMessage, APIMessage } from "../types/interfaces";
 import VisualRequests from "./VisualRequests";
 import RequestAnalysis from "./RequestAnalysis";
 import GanttChart from "./GanttChart";
+import APIMessages from "./APIMessages"; // Import the new APIMessages component
 import { ResizableBox } from "react-resizable";
 import "react-resizable/css/styles.css";
 
@@ -42,8 +43,12 @@ interface ViewerLayoutProps {
     | "metrics"
     | "filterExpressions"
     | "calculatedFields"
-    | "webSocketMessages";
+    | "webSocketMessages"
+    | "apiMessages" // Add 'apiMessages' to activeSection type
+    | "parameters"
+    | "awsSupport";
   hierarchy: any;
+  apiMessages: Map<string, APIMessage>; // Add apiMessages prop
   handleCidClick: (cid: string) => void;
   handleListItemClick: (message: WebSocketMessage) => void;
   handleSectionChange: (
@@ -54,7 +59,10 @@ interface ViewerLayoutProps {
       | "metrics"
       | "filterExpressions"
       | "calculatedFields"
-      | "webSocketMessages",
+      | "webSocketMessages"
+      | "apiMessages" // Add 'apiMessages' to newValue type
+      | "parameters"
+      | "awsSupport",
   ) => void;
   handleHighlightCalculatedField: (name: string) => void;
   highlightedField: string | null;
@@ -72,7 +80,23 @@ const ViewerLayout: React.FC<ViewerLayoutProps> = ({
   highlightedField,
   highlightedRequestId,
   hierarchy,
+  apiMessages, // Add apiMessages prop
 }) => {
+  const [aggLevel, setAggLevel] = useState<
+    "Dashboard/Analysis" | "Sheet" | "DataSet" | "Visual" | "Request"
+  >("Visual");
+
+  const handleAggLevelChange = (
+    newAggLevel:
+      | "Dashboard/Analysis"
+      | "Sheet"
+      | "DataSet"
+      | "Visual"
+      | "Request",
+  ) => {
+    setAggLevel(newAggLevel);
+  };
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -107,6 +131,8 @@ const ViewerLayout: React.FC<ViewerLayoutProps> = ({
                   selectedCid={selectedCid}
                   onCidClick={handleCidClick}
                   highlightedRequestId={highlightedRequestId}
+                  aggLevel={aggLevel}
+                  onAggLevelChange={handleAggLevelChange}
                 />
               </Box>
             </ResizableBox>
@@ -140,6 +166,8 @@ const ViewerLayout: React.FC<ViewerLayoutProps> = ({
                   selectedCid={selectedCid}
                   onBarClick={handleCidClick}
                   highlightedRequestId={highlightedRequestId}
+                  aggLevel={aggLevel}
+                  onAggLevelChange={handleAggLevelChange}
                 />
               </Box>
             </ResizableBox>
@@ -185,7 +213,10 @@ const ViewerLayout: React.FC<ViewerLayoutProps> = ({
                 <Tab value="parameters" label="Parameters" />
                 <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
                 <Tab value="calculatedFields" label="Calculated Fields" />
+                <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
                 <Tab value="webSocketMessages" label="WebSocket Messages" />
+                <Tab value="apiMessages" label="API Messages" />
+                <Tab value="awsSupport" label="AWS Support Data" />
               </Tabs>
             </Box>
           </Grid>
@@ -199,6 +230,7 @@ const ViewerLayout: React.FC<ViewerLayoutProps> = ({
                 handleListItemClick={handleListItemClick}
                 handleHighlightCalculatedField={handleHighlightCalculatedField}
                 highlightedField={highlightedField}
+                apiMessages={apiMessages} // Pass apiMessages prop to RequestAnalysis
               />
             ) : (
               <Grid

@@ -66,7 +66,7 @@ describe("sqlParser with custom functions", () => {
 
       expect(ast).toBeTruthy();
       expect(ast.type).toBe("function");
-      expect(ast.name).toBe("maxOver");
+      expect(ast.name).toBe("MAX_OVER");
     });
 
     test("parses stdevOver function correctly", () => {
@@ -76,7 +76,7 @@ describe("sqlParser with custom functions", () => {
 
       expect(ast).toBeTruthy();
       expect(ast.type).toBe("function");
-      expect(ast.name).toBe("stdevOver");
+      expect(ast.name).toBe("STDEV_OVER");
     });
 
     test("parses periodOverPeriodDifference function correctly", () => {
@@ -105,7 +105,7 @@ describe("sqlParser with custom functions", () => {
 
       expect(ast).toBeTruthy();
       expect(ast.type).toBe("function");
-      expect(ast.name).toBe("maxOver");
+      expect(ast.name).toBe("MAX_OVER");
     });
   });
 
@@ -115,6 +115,6 @@ describe("sqlParser with custom functions", () => {
     const { parsedExpression: ast } = parseSQL(expression); // Adjust type if possible
     expect(ast).toBeTruthy();
     expect(ast.type).toBe("function");
-    expect(ast.name).toBe("rank");
+    expect(ast.name).toBe("RANK");
   });
 });
